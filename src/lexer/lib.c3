@@ -2,6 +2,14 @@ module lery::lexer;
 import std::io;
 import libc;
 
+fault LexerFault {
+        ERROR,
+        NO_MORE_ELEMENT,
+        UNEXPECTED_CHARACTER,
+        INVALID_INTEGER_LITERAL,
+        UNEXPECTED_END_OF_FILE,
+}
+
 struct LexerLoc {
         uint line;
         uint column;
@@ -24,7 +32,9 @@ struct Lexer {
         LexerLoc loc;
 }
 
-fn Lexer new(String program) => Lexer { .program = program };
+fn Lexer new(String program) => Lexer { .program = program, .loc = LexerLoc { .line = 1, .column = 1 }};
+
+fn void Lexer.setFile(&self, String file) => self.loc.setFile(file);
 
 fn char! Lexer.peek(&self, usz distance = 0) {
         if(self.position + distance >= self.program.len) return IteratorResult.NO_MORE_ELEMENT?;
@@ -52,16 +62,16 @@ fn Token Lexer.makeThreeCharToken(&self, TokenType type) {
         return token::new(type, self.loc, span::new(self.position, 2));
 }
 
-fn void Lexer.error(&self, String error) @noreturn {
+fn anyfault Lexer.error(&self, String error, LexerLoc loc = self.loc) @noreturn {
         usz posStart = self.position;
         usz posEnd   = self.position;
         while(posStart != 0 && self.program[posStart] != '\n') posStart--;
         while(posEnd < self.program.len && self.program[posEnd] != '\n') posEnd++;
         if(self.program[posStart] == '\n') posStart++;
         String line = self.program[posStart..posEnd - 1];
-        io::eprintf("\n%s\n", error, line);
-        io::eprintf("%*s\n", self.loc.column, "^");
-        std::core::builtin::panic("Lexer: %s", error);
+        io::eprintf("[ERROR] %s:%d:%d => %s\n%s\n", loc.file, loc.line, loc.column, error, line);
+        io::eprintf("%*s\n", loc.column, "^");
+        return LexerFault.ERROR;
 }
 
 fn void Lexer.skipSingleLineComment(&self) {
@@ -89,7 +99,24 @@ fn void Lexer.skipMultipleLineComment(&self) {
         }
 }
 
-fn Token Lexer.next(&self) {
+fn usz! Lexer.lexInt(&self, usz start, String id) {
+        usz value = 0;
+        for(usz i = 0; i < id.len; i++) {
+                char! curr = id[i];
+                if(catch curr) break;
+                if(curr == '_') continue;
+                if(!curr.is_digit()) {
+                        LexerLoc loc = self.loc;
+                        loc.column -= id.len - (uint)i;
+                        self.error("Invalid integer literal", loc)? ?? LexerFault.INVALID_INTEGER_LITERAL?!;
+                }
+                value *= 10;
+                value += (usz)(curr - '0');
+        }
+        return value;
+}
+
+fn Token! Lexer.next(&self) {
         char! curr = self.peek();
         if(catch curr) return token::new(TokenType.END_OF_FILE);
         switch(curr) {
@@ -142,6 +169,14 @@ fn Token Lexer.next(&self) {
                                         return self.next();
                                 }
                                 default: return self.makeSingleCharToken(TokenType.SLASH);
+                        }
+                }
+                case '%': {
+                        char! next = self.peek(1);
+                        if(catch next) return self.makeSingleCharToken(TokenType.MODULUS);
+                        switch(next) {
+                                case '=': return self.makeTwoCharToken(TokenType.MODULUS_ASSIGN);
+                                default: return self.makeSingleCharToken(TokenType.MODULUS);
                         }
                 }
                 case '|': {
@@ -242,6 +277,7 @@ fn Token Lexer.next(&self) {
                                         }
                                 }
                                 case '/': return self.makeTwoCharToken(TokenType.ASSIGN_SLASH);
+                                case '%': return self.makeTwoCharToken(TokenType.ASSIGN_MODULUS);
                                 case '|': {
                                         char! next2 = self.peek(2);
                                         if(catch next2) return self.makeTwoCharToken(TokenType.ASSIGN_OR);
@@ -298,10 +334,10 @@ fn Token Lexer.next(&self) {
                 }
                 case '!': {
                         char! next = self.peek(1);
-                        if(catch next) return self.makeSingleCharToken(TokenType.NOT);
+                        if(catch next) return self.makeSingleCharToken(TokenType.BOOL_NOT);
                         switch(next) {
                                 case '=': return self.makeTwoCharToken(TokenType.NOT_EQUAL);
-                                default: return self.makeSingleCharToken(TokenType.NOT);
+                                default: return self.makeSingleCharToken(TokenType.BOOL_NOT);
                         }
                 }
                 case '<': {
@@ -337,6 +373,7 @@ fn Token Lexer.next(&self) {
                         }
                 }
                 case ',': return self.makeSingleCharToken(TokenType.COMMA);
+                case '.': return self.makeSingleCharToken(TokenType.DOT);
                 case '(': return self.makeSingleCharToken(TokenType.LEFT_PAREN);
                 case ')': return self.makeSingleCharToken(TokenType.RIGHT_PAREN);
                 case '{': return self.makeSingleCharToken(TokenType.LEFT_BRACKET);
@@ -345,6 +382,47 @@ fn Token Lexer.next(&self) {
                 case ']': return self.makeSingleCharToken(TokenType.RIGHT_BRACE);
                 case ':': return self.makeSingleCharToken(TokenType.COLON);
                 case ';': return self.makeSingleCharToken(TokenType.SEMICOLON);
-                default: self.error("Unexpected character");
+                default:  {
+                        switch(true) {
+                                case curr.is_space():
+                                        while(true) {
+                                                char! next = self.peek();
+                                                if(catch next) break;
+                                                if(next.is_space()) {
+                                                        self.advance();
+                                                        continue;
+                                                }
+                                                break;
+                                        }
+                                        return self.next();
+                                case curr.is_alpha() || curr == '_':
+                                        usz start = self.position;
+                                        while(true) {
+                                                char! next = self.peek();
+                                                if(catch next) break;
+                                                if(next.is_alpha() || next.is_digit() || next == '_') {
+                                                        self.advance();
+                                                        continue;
+                                                }
+                                                break;
+                                        }
+                                        String id = self.program[start..self.position - 1];
+                                        return token::new(token::getKeyword(id), self.loc, span::new(start, self.position - start), TokenValue { .ident = id.copy() });
+                                case curr.is_digit():
+                                        usz start = self.position;
+                                        while(true) {
+                                                char! next = self.peek();
+                                                if(catch next) break;
+                                                if(next.is_alnum() || next == '_') {
+                                                        self.advance();
+                                                        continue;
+                                                }
+                                                break;
+                                        }
+                                        String id = self.program[start..self.position - 1];
+                                        return token::new(TokenType.INT_LITERAL, self.loc, span::new(start, self.position - start), TokenValue { .intLit = self.lexInt(start, id)! });
+                        }
+                        return self.error("Unexpected character")? ?? LexerFault.UNEXPECTED_CHARACTER?;
+                }
         }
 }
