@@ -1,0 +1,6 @@
+C3
+    filter rm_comments_in_strings " /* */
+    filter rm_comments_in_strings " // 
+    extension c3
+    3rd_gen_scale 0.77
+    end_of_line_continuation \\$

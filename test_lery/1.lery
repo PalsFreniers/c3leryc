@@ -1,5 +1,5 @@
-import std::io;
+global x: u32 = 15;
 
-fn entry() -> void {
-        io::printn("Hello World!");
+fn entry() -> u32 {
+        return x + 2;
 }

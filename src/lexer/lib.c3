@@ -8,6 +8,8 @@ fault LexerFault {
         UNEXPECTED_CHARACTER,
         INVALID_INTEGER_LITERAL,
         UNEXPECTED_END_OF_FILE,
+        INVALID_IDENT,
+        RESERVED_IDENT,
 }
 
 struct LexerLoc {
@@ -20,7 +22,7 @@ fn void LexerLoc.inc(&self, bool newLine = false) {
         self.column++;
         if(newLine) {
                 self.line++;
-                self.column = 0;
+                self.column = 1;
         }
 }
 
@@ -59,7 +61,7 @@ fn Token Lexer.makeTwoCharToken(&self, TokenType type) {
 
 fn Token Lexer.makeThreeCharToken(&self, TokenType type) {
         defer self.advance(3);
-        return token::new(type, self.loc, span::new(self.position, 2));
+        return token::new(type, self.loc, span::new(self.position, 3));
 }
 
 fn anyfault Lexer.error(&self, String error, LexerLoc loc = self.loc) @noreturn {
@@ -69,8 +71,8 @@ fn anyfault Lexer.error(&self, String error, LexerLoc loc = self.loc) @noreturn 
         while(posEnd < self.program.len && self.program[posEnd] != '\n') posEnd++;
         if(self.program[posStart] == '\n') posStart++;
         String line = self.program[posStart..posEnd - 1];
-        io::eprintf("[ERROR] %s:%d:%d => %s\n%s\n", loc.file, loc.line, loc.column, error, line);
-        io::eprintf("%*s\n", loc.column, "^");
+        io::printf("[ERROR] %s:%d:%d => %s\n%s\n", loc.file, loc.line, loc.column, error, line);
+        io::printf("%*s\n", loc.column, "^");
         return LexerFault.ERROR;
 }
 
@@ -397,6 +399,7 @@ fn Token! Lexer.next(&self) {
                                         return self.next();
                                 case curr.is_alpha() || curr == '_':
                                         usz start = self.position;
+                                        LexerLoc startLoc = self.loc;
                                         while(true) {
                                                 char! next = self.peek();
                                                 if(catch next) break;
@@ -407,9 +410,10 @@ fn Token! Lexer.next(&self) {
                                                 break;
                                         }
                                         String id = self.program[start..self.position - 1];
-                                        return token::new(token::getKeyword(id), self.loc, span::new(start, self.position - start), TokenValue { .ident = id.copy() });
+                                        return token::new(token::getKeyword(id), startLoc, span::new(start, self.position - start), TokenValue { .ident = id });
                                 case curr.is_digit():
                                         usz start = self.position;
+                                        LexerLoc startLoc = self.loc;
                                         while(true) {
                                                 char! next = self.peek();
                                                 if(catch next) break;
@@ -420,7 +424,7 @@ fn Token! Lexer.next(&self) {
                                                 break;
                                         }
                                         String id = self.program[start..self.position - 1];
-                                        return token::new(TokenType.INT_LITERAL, self.loc, span::new(start, self.position - start), TokenValue { .intLit = self.lexInt(start, id)! });
+                                        return token::new(TokenType.INT_LITERAL, startLoc, span::new(start, self.position - start), TokenValue { .intLit = self.lexInt(start, id)! });
                         }
                         return self.error("Unexpected character")? ?? LexerFault.UNEXPECTED_CHARACTER?;
                 }

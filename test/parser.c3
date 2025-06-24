@@ -119,3 +119,9 @@ fn void testSimpleGlobalTripleExpr() @test {
         assert(!prog[0].as.globalDecl.type.isRef, "type should not be a reference");
         assert(prog[0].as.globalDecl.type.dim == 0, "type should not be an array");
 }
+
+fn void testFunction() @test {
+        String src = "global x: u32 = 5;\nfn entry() -> u8 {\n\ty: u64 = x + 5;\n\tz: u64 = x * y;\n}";
+        Parser p = generateParserFromSource(src)!!;
+        Program prog = p.parse()!!;
+}
