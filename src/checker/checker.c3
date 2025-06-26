@@ -102,10 +102,23 @@ struct CheckedGlobal {
         CheckedGlobalData as;
 }
 
+macro newCheckedGlobal(type, kind, data) => CheckedGlobal {
+        .typeId = type,
+        .kind = kind,
+        .as = data,
+};
+
 struct CheckedGlobalDecl {
         String name;
         CheckedExpression* val;
 }
+
+macro newCheckedGlobalDecl(type, name, expr) => newCheckedGlobal(type, CheckedGlobalKind.GLOBAL_DECL, CheckedGlobalData {
+        .globalDecl = CheckedGlobalDecl {
+                .name = name,
+                .val = expr,
+        }
+});
 
 enum CheckedStatementKind {
         RETURN,
@@ -155,72 +168,6 @@ struct CheckedBinop {
         CheckedBinopType kind;
         CheckedExpression* lhs;
         CheckedExpression* rhs;
-}
-
-macro newCheckedBinop(kind, lhs, rhs, kind) =>
-
-macro newCheckedExpression(kind, data, span, typeId) => mem::new(CheckedExpression, {
-        .kind = kind,
-        .as = data,
-        .span = span,
-        .typeId = typeId,
-});
-
-macro newCheckedUnit(span) => newCheckedExpression(CheckedExpressionKind.UNIT, CheckedExpressionData {}, span, type::VOID_ID);
-
-macro newCheckedBool(Token val) => newCheckedExpression(CheckedExpressionKind.BOOL_LITERAL, CheckedExpressionData {
-        .boolLit = (val.type == TokenType.TRUE ? true : false),
-}, val.span, type::BOOL_ID);
-
-macro CheckedExpression.convertIntChecked(&self, TypeId hint, loc) {
-        TypeId type = hint;
-        usz data = self.as.intLit;
-        usz tmp = data;
-        switch(hint) {
-                case type::NONE:
-                        type = type::BUILTIN_INT_ID;
-                case type::U8_ID:
-                        type = type::U8_ID;
-                        data &= 0xff;
-                case type::U16_ID:
-                        type = type::U16_ID;
-                        data &= 0xffff;
-                case type::U32_ID:
-                        type = type::U32_ID;
-                        data &= 0xffffffff;
-                case type::U64_ID:
-                        type = type::U64_ID;
-                case type::I8_ID:
-                        type = type::I8_ID;
-                        data &= 0x7f;
-                case type::I16_ID:
-                        type = type::I16_ID;
-                        data &= 0x7fff;
-                case type::I32_ID:
-                        type = type::I32_ID;
-                        data &= 0x7fffffff;
-                case type::I64_ID:
-                        type = type::I64_ID;
-                default:
-                        unreachable("not a valid int");
-        }
-        if(data != tmp) utils::warning(loc, "int data lost due to int compression");
-        self.as.intLit = data;
-        self.typeId = type;
-        return self;
-}
-
-macro CheckedExpression* newCheckedInt(Token val, TypeId hint) {
-        return newCheckedExpression(CheckedExpressionKind.INT_LITERAL, CheckedExpressionData {
-                .intLit = val.as.intLit,
-        }, val.span, type::BUILTIN_INT_ID).convertIntChecked(hint, val.loc);
-}
-
-macro newCheckedIdentIdent(Checker* check, Token val, TypeId hint, TypeId type) {
-        if(check.getTypeSize(hint) < check.getTypeSize(type)) utils::warning(val.loc, "possible int data lost due to int convertion");
-        return newCheckedExpression(CheckedExpression.IDENT, CheckedExpressionData {
-                .ident = val.as.ident,
-        }, val.span, hint);
 }
 
 module lery::checker::scope;
@@ -289,7 +236,7 @@ macro isCorrect(hint) => hint != ERROR;
 
 macro isNot(hint, type) => (!isCorrect(hint)) || type != hint;
 
-macro isValidInt(hint) => (!isCorrect(hint)) && (hint >= U8_ID && hint <= I64_ID);
+macro isValidInt(hint) => (!isCorrect(hint)) && (hint >= BUILTIN_INT_ID && hint <= I64_ID);
 
 macro isSignedInt(hint) => isValidInt(hint) && (hint >= I8_ID);
 
