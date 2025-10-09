@@ -10,17 +10,17 @@ struct Checker {
         Program prog;
         String src;
         ScopeId currScope;
-        List(<Scope>) scopes;
-        List(<CTypeData>) types;
-        List(<TypeError>) errors;
+        List{ Scope } scopes;
+        List{ CTypeData } types;
+        List{ TypeError } errors;
 }
 
 macro Checker.newType(&self, name, size, scopeId) => self.types.push(type::new(name, size, scopeId));
 
 fn Checker new(Program prog, String src) {
         Checker check = Checker {
-                .prog = prog,
-                .src = src,
+                prog = prog,
+                src = src,
         };
         check.currScope = scope::GLOBAL;
         check.scopes.new_init();
@@ -28,16 +28,7 @@ fn Checker new(Program prog, String src) {
         check.errors.new_init();
         check.allocScope(scope::ERROR);
         check.newType("void",        0, scope::GLOBAL);
-        check.newType("builtin.int", 0, scope::GLOBAL);
-        check.newType("u8",          1, scope::GLOBAL);
-        check.newType("u16",         2, scope::GLOBAL);
         check.newType("u32",         4, scope::GLOBAL);
-        check.newType("u64",         8, scope::GLOBAL);
-        check.newType("i8",          1, scope::GLOBAL);
-        check.newType("i16",         2, scope::GLOBAL);
-        check.newType("i32",         4, scope::GLOBAL);
-        check.newType("i64",         8, scope::GLOBAL);
-        check.newType("bool",        1, scope::GLOBAL);
         return check;
 }
 
@@ -86,7 +77,7 @@ macro ScopeId Checker.allocScope(&self, ScopeId parentId) {
         return self.scopes.len() - 1;
 }
 
-def CheckedProgram = List(<CheckedGlobal>);
+alias CheckedProgram = List{ CheckedGlobal };
 
 enum CheckedGlobalKind {
         GLOBAL_DECL,
@@ -103,9 +94,9 @@ struct CheckedGlobal {
 }
 
 macro newCheckedGlobal(type, kind, data) => CheckedGlobal {
-        .typeId = type,
-        .kind = kind,
-        .as = data,
+        typeId = type,
+        kind = kind,
+        as = data,
 };
 
 struct CheckedGlobalDecl {
@@ -114,9 +105,9 @@ struct CheckedGlobalDecl {
 }
 
 macro newCheckedGlobalDecl(type, name, expr) => newCheckedGlobal(type, CheckedGlobalKind.GLOBAL_DECL, CheckedGlobalData {
-        .globalDecl = CheckedGlobalDecl {
-                .name = name,
-                .val = expr,
+        globalDecl = CheckedGlobalDecl {
+                name = name,
+                val = expr,
         }
 });
 
@@ -174,11 +165,11 @@ module lery::checker::scope;
 import lery::checker::type;
 import std::collections::map;
 
-def ScopeId = isz;
+alias ScopeId = isz;
 
 struct Scope {
         ScopeId parentId;
-        Map(<String, TypeId>) vars;
+        Map{ String, TypeId } vars;
 }
 
 enum Symbol {
@@ -188,16 +179,16 @@ enum Symbol {
 macro Scope.newVar(&self, String name, TypeId type) => self.vars[name] = type;
 
 macro Scope.getSymbolType(&self, Symbol $type, name) {
-        $switch($type)
+        $switch($type):
                 $case Symbol.VAR:
                         return self.vars[name];
         $endswitch
 }
 
-macro TypeId! Scope.getVar(&self, String name) => self.getSymbolType(Symbol.VAR, name);
+macro TypeId? Scope.getVar(&self, String name) => self.getSymbolType(Symbol.VAR, name);
 
 macro Scope new(ScopeId parentId) => Scope {
-        .parentId = parentId,
+        parentId = parentId,
 };
 
 const GLOBAL = 0;
@@ -208,27 +199,13 @@ module lery::checker::type;
 import lery::checker::scope;
 import lery::lexer::token::span;
 
-def TypeId = isz;
+alias TypeId = isz;
 
 struct CTypeData {
         String name;
         usz byteSize;
         ScopeId scopeId;
 }
-
-const ERROR          = -2;
-const NONE           = -1;
-const VOID_ID        = 0 ;
-const BUILTIN_INT_ID = 1 ;
-const U8_ID          = 2 ;
-const U16_ID         = 3 ;
-const U32_ID         = 4 ;
-const U64_ID         = 5 ;
-const I8_ID          = 6 ;
-const I16_ID         = 7 ;
-const I32_ID         = 8 ;
-const I64_ID         = 9 ;
-const BOOL_ID        = 10;
 
 macro new(name, size, scopeId) => CTypeData {name, size, scopeId};
 
@@ -249,26 +226,25 @@ struct TypeError {
 }
 
 macro newTypeError(span, expected, got, msg = "") => TypeError {
-        .span = span,
-        .msg = msg,
-        .expected = expected,
-        .got = got,
+        span = span,
+        msg = msg,
+        expected = expected,
+        got = got,
 };
 
-macro newTypeMismatch(span, expected, got, $msg = "")
-        => newTypeError(span, expected, got, "Mismatch type expected & but got &" +++ $msg);
+macro newTypeMismatch(span, expected, got, $msg = "") => newTypeError(span, expected, got, "Mismatch type expected & but got &" +++ $msg);
 
-module lery::checker::result(<Ok>); 
+module lery::checker::result{ Ok }; 
 import lery::checker::type;
 import lery::utils::result;
 
-def CheckedResult = Result(<Ok, TypeError>);
+alias CheckedResult = Result{ Ok, TypeError };
 
 module lery::checker::result::res;
 import lery::checker::result;
 import lery::checker::type;
 import lery::utils::result;
 
-macro ok(val) => result::_ok(<$typeof(val), TypeError>)(val);
+macro ok(val) => result::_ok{ $typeof(val), TypeError }(val);
 
-macro err($Type, TypeError val) => result::_err(<$Type, TypeError>)(val);
+macro err($Type, TypeError val) => result::_err{ $Type, TypeError }(val);

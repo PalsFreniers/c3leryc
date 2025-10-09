@@ -4,9 +4,9 @@ import lery::lexer;
 import std::collections::list;
 import lery::utils;
 
-def TokenList = list::List(<Token>);
+alias TokenList = list::List{ Token };
 
-fn void! TokenList.collect(&self, Lexer *l) {
+fn void? TokenList.collect(&self, Lexer *l) {
         Token t = l.next()!;
         while(t.type != TokenType.END_OF_FILE) {
                 self.push(t);
@@ -15,21 +15,22 @@ fn void! TokenList.collect(&self, Lexer *l) {
         self.push(t);
 }
 
-fault ParserFault {
-        EMPTY_PROGRAM,
-        ILLEGAL_TOKEN,
-        UNEXPECTED_TOKEN,
-        BAD_UNIT,
-}
+faultdef EMPTY_PROGRAM,
+         ILLEGAL_TOKEN,
+         UNEXPECTED_TOKEN,
+         BAD_UNIT;
 
 struct Parser {
         TokenList tokens;
         String src;
 }
 
-fn Parser new(TokenList tokens, String src) => Parser { .tokens = tokens, .src = src };
+fn Parser new(TokenList tokens, String src) => Parser { 
+	tokens = tokens,
+	src = src
+};
 
-fn anyfault Parser.error(&self, Token tok, String error) {
+fn fault Parser.error(&self, Token tok, String error) {
         usz posStart  = tok.span.start;
         usz posEnd    = tok.span.end;
         usz len       = posEnd - posStart;
@@ -43,32 +44,32 @@ fn anyfault Parser.error(&self, Token tok, String error) {
         io::printf("%*s", tok.loc.column, "^");
         if(len > 1) for(int i = 0; i < len - 1; i++) io::print("~");
         io::printn("");
-        return LexerFault.ERROR;
+        return ERROR;
 }
 
-fn Token! Parser.peek(self, usz distance = 0) {
-        Token! curr = self.tokens[distance];
-        if(catch curr) return self.error(token::new(TokenType.END_OF_FILE), "got no end of file at en file end")? ?? ParserFault.EMPTY_PROGRAM?;
+fn Token? Parser.peek(self, usz distance = 0) {
+        Token? curr = self.tokens[distance];
+        if(catch curr) return self.error(token::new(TokenType.END_OF_FILE), "got no end of file at en file end")? ?? EMPTY_PROGRAM?;
         return curr;
 }
 
-fn Token! Parser.pop(&self) {
+fn Token? Parser.pop(&self) {
         Token curr = self.peek()!;
         self.tokens.pop_first()!!;
         return curr;
 }
 
-fn Token! Parser.expectToken(&self, TokenType tok, bool reserve = true) {
+fn Token? Parser.expectToken(&self, TokenType tok, bool reserve = true) {
         Token curr = self.pop()!;
         if(curr.type != tok) {
                 self.error(curr, "Unexpected Token");
-                return ParserFault.UNEXPECTED_TOKEN?;
+                return UNEXPECTED_TOKEN?;
         }
         if(reserve && tok == TokenType.IDENTIFIER) curr.checkTypeIdent(self)!;
         return curr;
 }
 
-fn Program! Parser.parse(Parser *self) {
+fn Program? Parser.parse(Parser *self) {
         Program program;
         program.new_init();
         Token curr = self.pop()!;
@@ -80,18 +81,18 @@ fn Program! Parser.parse(Parser *self) {
                                 program.push(self.parseFunction()!);
                         default:
                                 self.error(curr, "illegal token in program root");
-                                return ParserFault.ILLEGAL_TOKEN?;
+                                return ILLEGAL_TOKEN?;
                 }
                 curr = self.pop()!;
         }
         return program;
 }
 
-fn Type*! Parser.parseType(&self) {
+fn Type*? Parser.parseType(&self) {
         return self.parseConstType()!;
 }
 
-fn Type*! Parser.parseConstType(&self) {
+fn Type*? Parser.parseConstType(&self) {
         if(self.peek()!.type == TokenType.CONST) {
                 self.pop()!;
                 return ast::newRefType(self.parseRefType()!);
@@ -99,7 +100,7 @@ fn Type*! Parser.parseConstType(&self) {
         return self.parseRefType()!;
 }
 
-fn Type*! Parser.parseRefType(&self) {
+fn Type*? Parser.parseRefType(&self) {
         if(self.peek()!.type == TokenType.REF) {
                 self.pop()!;
                 return ast::newRefType(self.parseArrayType()!);
@@ -107,7 +108,7 @@ fn Type*! Parser.parseRefType(&self) {
         return self.parseArrayType()!;
 }
 
-fn Type*! Parser.parseArrayType(&self) {
+fn Type*? Parser.parseArrayType(&self) {
         Type* base = self.parsePrioType()!;
         usz dim;
         while(self.peek()!.type == TokenType.LEFT_BRACE) {
@@ -119,7 +120,7 @@ fn Type*! Parser.parseArrayType(&self) {
         return base;
 }
 
-fn Type*! Parser.parsePrioType(&self) {
+fn Type*? Parser.parsePrioType(&self) {
         if(self.peek()!.type == TokenType.LEFT_PAREN) {
                 self.pop()!;
                 Type* t = self.parseType()!;
@@ -129,7 +130,7 @@ fn Type*! Parser.parsePrioType(&self) {
         return self.parseBaseType()!;
 }
 
-fn Type*! Parser.parseBaseType(&self) {
+fn Type*? Parser.parseBaseType(&self) {
         if(self.peek()!.type == TokenType.FUNCTION) {
                 utils::todo("parse function base type");
         } else {
@@ -138,11 +139,11 @@ fn Type*! Parser.parseBaseType(&self) {
         }
 }
 
-fn ExpressionASTNode*! Parser.parseExpression(&self) {
+fn ExpressionASTNode*? Parser.parseExpression(&self) {
         return self.parseLV1Expression()!;
 }
 
-fn ExpressionASTNode*! Parser.parseLV1Expression(&self) {
+fn ExpressionASTNode*? Parser.parseLV1Expression(&self) {
         ExpressionASTNode* left = self.parseLV2Expression()!;
         Token curr = self.peek()!;
         while(curr.type == TokenType.PLUS ||
@@ -154,7 +155,7 @@ fn ExpressionASTNode*! Parser.parseLV1Expression(&self) {
         return left;
 }
 
-fn ExpressionASTNode*! Parser.parseLV2Expression(&self) {
+fn ExpressionASTNode*? Parser.parseLV2Expression(&self) {
         ExpressionASTNode* left = self.parsePrefixExpression()!;
         Token curr = self.peek()!;
         while(curr.type == TokenType.STAR ||
@@ -166,7 +167,7 @@ fn ExpressionASTNode*! Parser.parseLV2Expression(&self) {
         return left;
 }
 
-fn ExpressionASTNode*! Parser.parsePrefixExpression(&self) {
+fn ExpressionASTNode*? Parser.parsePrefixExpression(&self) {
         Token curr = self.peek()!;
         switch(curr.type) {
                 case TokenType.LEFT_PAREN:
@@ -182,7 +183,7 @@ fn ExpressionASTNode*! Parser.parsePrefixExpression(&self) {
         }
 }
 
-fn ExpressionASTNode*! Parser.parseUnitExpression(&self) {
+fn ExpressionASTNode*? Parser.parseUnitExpression(&self) {
         Token curr = self.pop()!;
         switch(curr.type) {
                 case TokenType.INT_LITERAL:
@@ -195,11 +196,11 @@ fn ExpressionASTNode*! Parser.parseUnitExpression(&self) {
                         return ast::newBoolLitExpr(curr);
                 default:
                         self.error(curr, "unable to parse unit expression");
-                        return ParserFault.BAD_UNIT?;
+                        return BAD_UNIT?;
         }
 }
 
-fn ASTNode! Parser.parseGlobalVar(&self) {
+fn ASTNode? Parser.parseGlobalVar(&self) {
         Token curr = self.expectToken(TokenType.IDENTIFIER)!;
         self.expectToken(TokenType.COLON)!;
         Type* type = self.parseType()!;
@@ -213,7 +214,7 @@ fn ASTNode! Parser.parseGlobalVar(&self) {
         return ast::newGlobalNode(curr, val, type);
 }
 
-fn ASTNode! Parser.parseFunction(&self) {
+fn ASTNode? Parser.parseFunction(&self) {
         Token name = self.expectToken(TokenType.IDENTIFIER)!;
         self.expectToken(TokenType.LEFT_PAREN)!;
         ParamList params = self.parseParams()!;
@@ -224,7 +225,7 @@ fn ASTNode! Parser.parseFunction(&self) {
         return ast::newFunctionNode(name, params, retType, block);
 }
 
-fn ParamList! Parser.parseParams(&self) {
+fn ParamList? Parser.parseParams(&self) {
         ParamList params;
         params.new_init();
         bool coma;
@@ -244,7 +245,7 @@ fn ParamList! Parser.parseParams(&self) {
         return params;
 }
 
-fn StatementASTNode! Parser.parseStatement(&self) {
+fn StatementASTNode? Parser.parseStatement(&self) {
         Token curr = self.peek()!;
         switch(curr.type) {
                 case TokenType.IDENTIFIER:
@@ -259,7 +260,7 @@ fn StatementASTNode! Parser.parseStatement(&self) {
                                 case TokenType.ASSIGN_PLUS:
                                         return self.parseVarAssignMod()!;
                                 default:
-                                        return self.error(curr, "illegal token in statement")? ?? ParserFault.ILLEGAL_TOKEN?;
+                                        return self.error(curr, "illegal token in statement")? ?? ILLEGAL_TOKEN?;
                         }
                 case TokenType.RETURN:
                         self.pop()!;
@@ -269,11 +270,11 @@ fn StatementASTNode! Parser.parseStatement(&self) {
                         self.expectToken(TokenType.SEMICOLON)!;
                         return ast::newReturnStatement(val);
                 default:
-                        return self.error(curr, "illegal token in statement")? ?? ParserFault.ILLEGAL_TOKEN?;
+                        return self.error(curr, "illegal token in statement")? ?? ILLEGAL_TOKEN?;
         }
 }
 
-fn StatementASTNode! Parser.parseVarDecl(&self) {
+fn StatementASTNode? Parser.parseVarDecl(&self) {
         Token name = self.expectToken(TokenType.IDENTIFIER)!;
         self.expectToken(TokenType.COLON)!;
         Type* type = self.parseType()!;
@@ -287,7 +288,7 @@ fn StatementASTNode! Parser.parseVarDecl(&self) {
         return ast::newVarDeclStatement(name, type, val);
 }
 
-fn StatementASTNode! Parser.parseVarAssign(&self) {
+fn StatementASTNode? Parser.parseVarAssign(&self) {
         Token name = self.expectToken(TokenType.IDENTIFIER)!;
         self.expectToken(TokenType.ASSIGNMENT)!;
         ExpressionASTNode* val = self.parseExpression()!;
@@ -295,7 +296,7 @@ fn StatementASTNode! Parser.parseVarAssign(&self) {
         return ast::newVarAssignStatement(name, val);
 }
 
-fn StatementASTNode! Parser.parseVarAssignMod(&self) {
+fn StatementASTNode? Parser.parseVarAssignMod(&self) {
         Token name = self.expectToken(TokenType.IDENTIFIER)!;
         Token op = self.pop()!;
         op.span.end--;
@@ -309,13 +310,13 @@ fn StatementASTNode! Parser.parseVarAssignMod(&self) {
                         op.type = TokenType.PLUS;
                         val = ast::newBinopExpr(op, self.parseExpression()!, left);
                 default:
-                        return self.error(op, "unreachable parse var assign mod")? ?? ParserFault.ILLEGAL_TOKEN?;
+                        return self.error(op, "unreachable parse var assign mod")? ?? ILLEGAL_TOKEN?;
         }
         self.expectToken(TokenType.SEMICOLON)!;
         return ast::newVarAssignStatement(name, val);
 }
 
-fn Block! Parser.parseBlock(&self) {
+fn Block? Parser.parseBlock(&self) {
         Block block;
         block.new_init();
         self.expectToken(TokenType.LEFT_BRACKET)!;

@@ -17,10 +17,8 @@ macro warning(loc, $msg, args...) {
 
 module lery::utils::result(<Ok, Err>);
 
-fault ResultFault {
-        ERROR,
-        NO_ERROR,
-}
+faultdef ERROR,
+         NO_ERROR;
 
 struct Result {
         Ok ok;
@@ -28,14 +26,14 @@ struct Result {
         bool isOk;
 }
 
-fn Ok! Result.getOk(&self) {
+fn Ok? Result.getOk(&self) {
         if(self.isOk) return self.ok;
-        return ResultFault.ERROR?;
+        return ERROR?;
 }
 
-fn Err! Result.getError(&self) {
+fn Err? Result.getError(&self) {
         if(!self.isOk) return self.err;
-        return ResultFault.NO_ERROR?;
+        return NO_ERROR?;
 }
 
 macro Result _ok(Ok val) => Result {

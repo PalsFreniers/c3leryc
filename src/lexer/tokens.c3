@@ -402,7 +402,12 @@ fn String Token.toString(self, String src) {
         return src[self.span.start .. self.span.end - 1];
 }
 
-fn Token new(TokenType type, LexerLoc loc = {}, TokenSpan span = {}, TokenValue as = {}) => Token { .type = type, .loc = loc, .span = span, .as = as };
+fn Token new(TokenType type, LexerLoc loc = {}, TokenSpan span = {}, TokenValue as = {}) => Token {
+	type = type,
+	loc = loc,
+	span = span,
+	as = as
+};
 
 fn TokenType getKeyword(String name) {
         switch (name) {
@@ -462,7 +467,7 @@ fn TokenType getKeyword(String name) {
         }
 }
 
-fn void! Token.checkTypeIdent(&self, Parser* parser) {
+fn void? Token.checkTypeIdent(&self, Parser* parser) {
         if(self.type != TokenType.IDENTIFIER) return parser.error(*self, "unreachable")? ?? LexerFault.INVALID_IDENT?;
         switch(self.toString(parser.src)) {
                 case "void": nextcase;
@@ -486,4 +491,7 @@ struct TokenSpan {
         usz end;
 }
 
-fn TokenSpan new(usz start, usz len) => TokenSpan { .start = start, .end = start + len };
+fn TokenSpan new(usz start, usz len) => TokenSpan {
+	start = start,
+	end = start + len
+};

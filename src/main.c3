@@ -13,7 +13,7 @@ macro String[].shift(&self) {
 fn String File.slurp(self) {
         DString tmp = dstring::new();
         while(true) {
-                char! c = self.read_byte();
+                char? c = self.read_byte();
                 if(catch c) break;
                 tmp.append(c);
         }
