@@ -32,18 +32,18 @@ struct Lexer {
         LexerLoc loc;
 }
 
-fn Lexer new(String program) => Lexer {
-	program = program,
-	loc = LexerLoc {
-		line = 1, 
-		column = 1
+macro Lexer new(String program) => (Lexer) {
+	.program = program,
+	.loc = (LexerLoc) {
+		.line = 1, 
+		.column = 1
 	}
 };
 
 fn void Lexer.setFile(&self, String file) => self.loc.setFile(file);
 
 fn char? Lexer.peek(&self, usz distance = 0) {
-        if(self.position + distance >= self.program.len) return IteratorResult.NO_MORE_ELEMENT?;
+        if(self.position + distance >= self.program.len) return NO_MORE_ELEMENT?;
         return self.program[self.position + distance];
 }
 
@@ -68,7 +68,7 @@ fn Token Lexer.makeThreeCharToken(&self, TokenType type) {
         return token::new(type, self.loc, span::new(self.position, 3));
 }
 
-fn fault Lexer.error(&self, String error, LexerLoc loc = self.loc) {
+fn fault Lexer.error(&self, fault f, String error, LexerLoc loc = self.loc) {
         usz posStart = self.position;
         usz posEnd   = self.position;
         while(posStart != 0 && self.program[posStart] != '\n') posStart--;
@@ -77,7 +77,7 @@ fn fault Lexer.error(&self, String error, LexerLoc loc = self.loc) {
         String line = self.program[posStart..posEnd - 1];
         io::printf("[ERROR] %s:%d:%d => %s\n%s\n", loc.file, loc.line, loc.column, error, line);
         io::printf("%*s\n", loc.column, "^");
-        return ERROR;
+        return f;
 }
 
 fn void Lexer.skipSingleLineComment(&self) {
@@ -114,7 +114,7 @@ fn usz? Lexer.lexInt(&self, usz start, String id) {
                 if(!curr.is_digit()) {
                         LexerLoc loc = self.loc;
                         loc.column -= id.len - (uint)i;
-                        self.error("Invalid integer literal", loc)? ?? INVALID_INTEGER_LITERAL?!;
+                        self.error(INVALID_INTEGER_LITERAL, "Invalid integer literal", loc)?!;
                 }
                 value *= 10;
                 value += (usz)(curr - '0');
@@ -414,7 +414,14 @@ fn Token? Lexer.next(&self) {
                                                 break;
                                         }
                                         String id = self.program[start..self.position - 1];
-                                        return token::new(token::getKeyword(id), startLoc, span::new(start, self.position - start), TokenValue { ident = id });
+                                        return token::new(
+											token::getKeyword(id),
+											startLoc,
+											span::new(start, self.position - start),
+											(TokenValue) {
+												.ident = id
+											}
+										);
                                 case curr.is_digit():
                                         usz start = self.position;
                                         LexerLoc startLoc = self.loc;
@@ -428,9 +435,16 @@ fn Token? Lexer.next(&self) {
                                                 break;
                                         }
                                         String id = self.program[start..self.position - 1];
-                                        return token::new(TokenType.INT_LITERAL, startLoc, span::new(start, self.position - start), TokenValue { intLit = self.lexInt(start, id)! });
+                                        return token::new(
+											TokenType.INT_LITERAL,
+											startLoc,
+											span::new(start, self.position - start),
+											(TokenValue) {
+												.intLit = self.lexInt(start, id)!
+											}
+										);
                         }
-                        return self.error("Unexpected character")? ?? UNEXPECTED_CHARACTER?;
+                        return self.error(UNEXPECTED_CHARACTER, "Unexpected character")?;
                 }
         }
 }

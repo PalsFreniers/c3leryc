@@ -2,7 +2,7 @@ import std::io;
 
 fn entry() -> void {
         in: i32;
-        io::getI32(in);
+        io::getI32(ref in);
         io::printfn("%d", fact(in));
 }
 

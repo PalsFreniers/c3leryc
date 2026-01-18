@@ -402,11 +402,18 @@ fn String Token.toString(self, String src) {
         return src[self.span.start .. self.span.end - 1];
 }
 
-fn Token new(TokenType type, LexerLoc loc = {}, TokenSpan span = {}, TokenValue as = {}) => Token {
-	type = type,
-	loc = loc,
-	span = span,
-	as = as
+macro Token @new(TokenType type, LexerLoc loc = {}, TokenSpan span = {}, TokenValue as = {}) => (Token) {
+	.type = type,
+	.loc = loc,
+	.span = span,
+	.as = as
+};
+
+macro Token new(TokenType type, LexerLoc loc = {}, TokenSpan span = {}, TokenValue as = {}) => (Token) {
+	.type = type,
+	.loc = loc,
+	.span = span,
+	.as = as
 };
 
 fn TokenType getKeyword(String name) {
@@ -468,7 +475,7 @@ fn TokenType getKeyword(String name) {
 }
 
 fn void? Token.checkTypeIdent(&self, Parser* parser) {
-        if(self.type != TokenType.IDENTIFIER) return parser.error(*self, "unreachable")? ?? LexerFault.INVALID_IDENT?;
+        if(self.type != TokenType.IDENTIFIER) return parser.error(*self, "unreachable")? ?? lexer::INVALID_IDENT?;
         switch(self.toString(parser.src)) {
                 case "void": nextcase;
                 case "u8": nextcase;
@@ -479,7 +486,7 @@ fn void? Token.checkTypeIdent(&self, Parser* parser) {
                 case "i16": nextcase;
                 case "i32": nextcase;
                 case "i64": nextcase;
-                case "bool": return parser.error(*self, "builtin typenames cannot be used as identifier")? ?? LexerFault.RESERVED_IDENT?;
+				case "bool": return parser.error(*self, "builtin typenames cannot be used as identifier")? ?? lexer::RESERVED_IDENT?;
                 default: return;
         }
 }
@@ -491,7 +498,7 @@ struct TokenSpan {
         usz end;
 }
 
-fn TokenSpan new(usz start, usz len) => TokenSpan {
-	start = start,
-	end = start + len
+fn TokenSpan new(usz start, usz len) => (TokenSpan) {
+	.start = start,
+	.end = start + len
 };

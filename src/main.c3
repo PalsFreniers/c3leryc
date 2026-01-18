@@ -11,13 +11,13 @@ macro String[].shift(&self) {
 }
 
 fn String File.slurp(self) {
-        DString tmp = dstring::new();
+        DString tmp = dstring::new(mem);
         while(true) {
                 char? c = self.read_byte();
                 if(catch c) break;
                 tmp.append(c);
         }
-        return tmp.copy_str();
+        return tmp.copy_str(mem);
 }
 
 fn int main(String[] args) {
@@ -26,11 +26,11 @@ fn int main(String[] args) {
         String opt = args.shift();
         if(file == "") return 1;
         String src = file::open(file, "r")!!.slurp();
-        defer mem::free(src);
+        defer src.free(mem);
         Lexer l = lexer::new(src);
         l.setFile(file);
         TokenList list;
-        list.new_init();
+        list.init(mem);
         list.collect(&l)!!;
         if(opt == "lex") {
                 foreach(t: list) {

@@ -15,7 +15,8 @@ fn void? TokenList.collect(&self, Lexer *l) {
         self.push(t);
 }
 
-faultdef EMPTY_PROGRAM,
+faultdef ERROR,
+         EMPTY_PROGRAM,
          ILLEGAL_TOKEN,
          UNEXPECTED_TOKEN,
          BAD_UNIT;
@@ -25,7 +26,7 @@ struct Parser {
         String src;
 }
 
-fn Parser new(TokenList tokens, String src) => Parser { 
+fn Parser new(TokenList tokens, String src) => (Parser) { 
 	tokens = tokens,
 	src = src
 };
@@ -71,7 +72,7 @@ fn Token? Parser.expectToken(&self, TokenType tok, bool reserve = true) {
 
 fn Program? Parser.parse(Parser *self) {
         Program program;
-        program.new_init();
+        program.init(mem);
         Token curr = self.pop()!;
         while (curr.type != TokenType.END_OF_FILE) {
                 switch(curr.type) {
@@ -227,7 +228,7 @@ fn ASTNode? Parser.parseFunction(&self) {
 
 fn ParamList? Parser.parseParams(&self) {
         ParamList params;
-        params.new_init();
+        params.init(mem);
         bool coma;
         while(self.peek()!.type != TokenType.RIGHT_PAREN) {
                 coma = false;
@@ -318,7 +319,7 @@ fn StatementASTNode? Parser.parseVarAssignMod(&self) {
 
 fn Block? Parser.parseBlock(&self) {
         Block block;
-        block.new_init();
+        block.init(mem);
         self.expectToken(TokenType.LEFT_BRACKET)!;
         while(self.peek()!.type != TokenType.RIGHT_BRACKET) {
                 block.push(self.parseStatement()!);
