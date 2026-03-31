@@ -1,5 +1,0 @@
-global x: u32 = 15;
-
-fn entry() -> u32 {
-        return x + 2;
-}
